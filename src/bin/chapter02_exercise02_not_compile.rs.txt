@@ -1,0 +1,32 @@
+trait Consume {
+    fn consume(self) -> i32;
+}
+
+struct Thing(i32);
+
+impl Consume for Thing {
+    fn consume(self) -> i32 {
+        self.0
+    }
+}
+
+fn use_dyn(c: &dyn Consume) -> i32 {
+    // error[E0161]: cannot move a value of type `dyn Consume`
+    // error[E0507]: cannot move out of `*c` which is behind a shared reference
+    //
+    // consume(self) takes the receiver by value, so calling it needs to move
+    // the callee out of wherever it lives. A `dyn Consume` behind `&dyn Consume`
+    // is a trait object: its concrete size isn't known at compile time (that's
+    // the whole point of dyn — the vtable lets one reference type stand in for
+    // any implementor), so the compiler can't emit code to pop it off the stack
+    // and hand it to consume() by value. `&self`/`&mut self` methods only need
+    // a pointer, so they work through a trait object; `self` methods need the
+    // whole value, which is exactly what a reference to an unsized dyn cannot
+    // provide.
+    c.consume()
+}
+
+fn main() {
+    let thing = Thing(42);
+    println!("Consumed: {}", use_dyn(&thing));
+}
